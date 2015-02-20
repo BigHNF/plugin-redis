@@ -11,10 +11,14 @@ local timer = require('timer')
 local ffi = require ('ffi')
 local fs = require('fs')
 local json = require('json')
+local os = require ('os')
+
 local success, boundary = pcall(require,'boundary')
 if (not success) then
   boundary = nil 
 end
+
+local isWindows = os.type() == 'win32'
 
 -- portable gethostname syscall
 ffi.cdef [[
@@ -22,7 +26,12 @@ ffi.cdef [[
 ]]
 function gethostname()
   local buf = ffi.new("uint8_t[?]", 256)
-  ffi.C.gethostname(buf,256);
+  if ( not isWindows ) then 
+    ffi.C.gethostname(buf,256)
+  else
+    local clib = ffi.load('ws2_32')
+    clib.gethostname(buf,256)
+  end
   return ffi.string(buf)
 end
 
