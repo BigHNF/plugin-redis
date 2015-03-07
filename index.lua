@@ -1,39 +1,21 @@
 -- [boundary.com] Redis Lua Plugin
 -- [author] Ivano Picco <ivano.picco@pianobit.com>
 
--- Requires.
+-- Common requires.
 local utils = require('utils')
-local uv_native = require ('uv_native')
-local string = require('string')
-local split = require('split')
-local redis = require('luvit-redis')
 local timer = require('timer')
-local ffi = require ('ffi')
 local fs = require('fs')
 local json = require('json')
 local os = require ('os')
+local tools = require ('tools')
 
 local success, boundary = pcall(require,'boundary')
 if (not success) then
   boundary = nil 
 end
 
-local isWindows = os.type() == 'win32'
-
--- portable gethostname syscall
-ffi.cdef [[
-  int gethostname (char *, int);
-]]
-function gethostname()
-  local buf = ffi.new("uint8_t[?]", 256)
-  if ( not isWindows ) then 
-    ffi.C.gethostname(buf,256)
-  else
-    local clib = ffi.load('ws2_32')
-    clib.gethostname(buf,256)
-  end
-  return ffi.string(buf)
-end
+-- Business requires.
+local redis = require('luvit-redis')
 
 -- Default parameters.
 local pollInterval = 10000
@@ -50,7 +32,7 @@ _parameters.pollInterval =
 
 _parameters.source =
   (type(_parameters.source) == 'string' and _parameters.source:gsub('%s+', '') ~= '' and _parameters.source ~= nil and _parameters.source) or
-  gethostname()
+  os.hostname()
 
 _parameters.host = 
   (type(_parameters.host) == 'string' and _parameters.host:gsub('%s+', '') ~= '' and _parameters.host) or 
@@ -85,7 +67,7 @@ end
 
 -- Parse line (i.e. line: "connected_clients : <value>").
 function parseEachLine(line)
-  local t = split(line,':')
+  local t = tools.split(line,':')
   if (#t == 2) then
     currentValues[t[1]]=t[2];
   end
@@ -100,7 +82,7 @@ function outputs()
   utils.print('REDIS_KEY_EVICTIONS', diffvalues('evicted_keys'), _parameters.source)
   utils.print('REDIS_COMMANDS_PROCESSED', diffvalues('total_commands_processed'), _parameters.source)
   utils.print('REDIS_CONNECTIONS_RECEIVED', diffvalues('total_connections_received'), _parameters.source)
-  utils.print('REDIS_USED_MEMORY', currentValues.used_memory_rss / uv_native.getTotalMemory(), _parameters.source)
+  utils.print('REDIS_USED_MEMORY', currentValues.used_memory_rss / os.totalmem(), _parameters.source)
 end
 
 -- Get current values.
